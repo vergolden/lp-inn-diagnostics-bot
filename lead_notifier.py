@@ -39,9 +39,21 @@ def _send_to_chat(token: str, chat_id: str, text: str) -> bool:
     return False
 
 
-def send_lead(token: str, chat_ids: list[str], vk_user_id: int, company: dict, contact: str) -> bool:
+def send_lead(
+    token: str,
+    chat_ids: list[str],
+    vk_user_id: int,
+    company: dict,
+    contact: str,
+    consent_acknowledged: bool = False,
+) -> bool:
     """
     Сохраняет лид локально и пытается отправить его в Telegram-чаты.
+
+    consent_acknowledged фиксирует в записи, что перед отправкой пользователю
+    показывался текст согласия на обработку ПД и политики конфиденциальности
+    (см. CONSENT_TEXT в vk_bot.py) — это доказательство для аудита, что
+    трансграничная передача через Telegram произошла после согласия.
 
     Возвращает True, если хотя бы одно уведомление в Telegram ушло успешно.
     Ничего не выбрасывает наружу — сетевые проблемы с Telegram не должны
@@ -55,6 +67,7 @@ def send_lead(token: str, chat_ids: list[str], vk_user_id: int, company: dict, c
         "okved": company.get("okved"),
         "vk_user_id": vk_user_id,
         "contact": contact,
+        "consent_acknowledged": consent_acknowledged,
     }
     _append_to_local_log(record)
 

@@ -47,6 +47,20 @@ WELCOME_TEXT = (
     f"{DISCLAIMER}"
 )
 
+# Заявка передаётся через Telegram — это трансграничная передача персональных
+# данных (серверы Telegram не в РФ), поэтому перед сбором контакта нужно
+# получить согласие. Формулировки и ссылки — те же, что уже используются на
+# сайте (site/src/components/ContactForm.tsx): /pdn-consent и /privacy-policy.
+CONSENT_TEXT = (
+    "Прежде чем передать заявку эксперту, пожалуйста, ознакомьтесь:\n\n"
+    "• Согласие на обработку персональных данных: https://legal-privacy.ru/pdn-consent\n"
+    "• Политика конфиденциальности: https://legal-privacy.ru/privacy-policy\n\n"
+    "Обратите внимание: заявка передаётся через Telegram — это трансграничная "
+    "передача персональных данных.\n\n"
+    "Если вы согласны — напишите телефон или e-mail следующим сообщением. "
+    f"Если нет — заявку можно не отправлять, нажмите «{BTN_CHECK}», чтобы вернуться в начало."
+)
+
 
 def format_company_reply(company: dict) -> str:
     status = company["status"]
@@ -99,12 +113,9 @@ async def check_handler(message: Message):
 @bot.on.message(text=BTN_CONSULT)
 async def consult_handler(message: Message):
     session = sessions.get(message.from_id, {})
-    session["step"] = "waiting_contact"
+    session["step"] = "waiting_consent_and_contact"
     sessions[message.from_id] = session
-    await message.answer(
-        "Оставьте телефон или e-mail для связи — мы свяжемся и обсудим детали.",
-        keyboard=main_keyboard,
-    )
+    await message.answer(CONSENT_TEXT, keyboard=main_keyboard)
 
 
 @bot.on.message()
@@ -124,7 +135,10 @@ async def fallback_handler(message: Message):
         await message.answer(format_company_reply(company), keyboard=main_keyboard)
         return
 
-    if step == "waiting_contact":
+    if step == "waiting_consent_and_contact":
+        # Пользователь увидел CONSENT_TEXT (согласие + политика + предупреждение
+        # о трансграничной передаче через Telegram) и продолжил диалог —
+        # по описанию DPO это и есть согласие. Фиксируем это в самом лиде.
         company = session.get("company", {})
         send_lead(
             token=config.TELEGRAM_BOT_TOKEN,
@@ -132,6 +146,7 @@ async def fallback_handler(message: Message):
             vk_user_id=message.from_id,
             company=company,
             contact=message.text,
+            consent_acknowledged=True,
         )
         session["step"] = "idle"
         await message.answer(
