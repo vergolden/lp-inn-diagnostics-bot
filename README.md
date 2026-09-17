@@ -59,3 +59,31 @@ python main.py            # запуск бота (LongPoll)
 
 Python 3.12, [vkbottle](https://github.com/vkbottle/vkbottle), requests, python-dotenv,
 [dadata.ru API](https://dadata.ru/api/find-party/).
+
+## Деплой на VPS (Docker + Coolify)
+
+Бот упакован в `Dockerfile` (Python 3.12-slim, зависимости из `requirements.txt`, точка входа —
+`python main.py`). Процесс не поднимает HTTP-сервер (работает через VK LongPoll), поэтому в
+Coolify для приложения отключён Healthcheck — стандартная HTTP-проверка здесь не применима.
+
+**Разворачивание с нуля:**
+
+1. Арендовать VPS (Ubuntu 24.04), установить Docker (`curl -fsSL https://get.docker.com | sh`)
+   и Coolify (`curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`)
+2. В Coolify: **Keys & Tokens → Private Keys** — сгенерировать SSH-ключ (ED25519), добавить его
+   публичную часть в GitHub-репозиторий → **Settings → Deploy keys** (с правом записи)
+3. Создать ресурс **Private Git Repository (with Deploy Key)**: URL репозитория, ветка `main`,
+   Build pack — **Dockerfile**
+4. Добавить переменные окружения (**Environment Variables**, Runtime): `DADATA_API_KEY`,
+   `VK_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID_ANDREW`, `TELEGRAM_CHAT_ID_WIFE`
+5. Отключить **Healthcheck** (по умолчанию выключен — не включать)
+6. **Deploy**
+
+**Автодеплой:** в Coolify (**Advanced → Git → Manual Git webhooks → GitHub**) скопировать
+Webhook URL и Webhook secret, добавить их в GitHub-репозиторий → **Settings → Webhooks → Add
+webhook** (Content type: `application/json`, событие: `push`). После этого каждый `git push` в
+`main` запускает пересборку и передеплой автоматически.
+
+**Восстановление после сбоя/переустановки:** повторить шаги 1–6 на новом сервере — состояние
+бота не хранится (сессии диалогов — в памяти процесса, лиды дублируются в `leads.jsonl` внутри
+контейнера и в Telegram, самостоятельной БД нет).
